@@ -1,4 +1,4 @@
-# elma-microservice
+# Solteq-microservice
 
 
 It can be used to import  all participants to Sesam.
