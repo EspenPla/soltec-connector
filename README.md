@@ -1,7 +1,10 @@
 # Solteq-microservice
 
 
-It can be used to import  all participants to Sesam.
+It can be used to connect Solteq to Sesam.
+- Support for getting all addresses and organizations
+- Support for creating new addresses
+- Support for updating existing addresses
 
 **An example of system config**   
 ```
