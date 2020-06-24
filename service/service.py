@@ -15,16 +15,15 @@ with open("banner.txt", 'r', encoding='utf-8') as banner:
     logger.error(banner.read())
 logger.error("")
 
-pretest = "https://tsapp-live.pretest.ba.solteq.io/"
-
 Susername = os.getenv("username")
 Spassword = os.getenv("password")
 Spayload = {"logonId": Susername, "logonPassword": Spassword}
 offset = 0
+url = ""
 # WCToken = ""
 # WCTrustedToken = ""
 
-env = pretest #or os.getenv("env")
+env = os.getenv("env")
 limit = os.getenv("batch_size")
 
 def get_auth():
@@ -52,10 +51,10 @@ def stream_as_json(generator_function):
         yield json.dumps(item)
     yield ']'
 
-def get_addresses(offset=offset):
+def get_all(offset=offset, url=url):
     try:
         headers = get_auth()
-        url = env+"rest/admin/v2/addresses"
+        
         # headers = get_auth(headers) #{"WCToken": WCToken, "WCTrustedToken": WCTrustedToken}
         nestedpath = "items" #request.args.get("nestedpath") having nested path hardcoded as this will probably not change.
         count = 0
@@ -64,7 +63,7 @@ def get_addresses(offset=offset):
             param = f'?offset={offset}&limit={limit}'
             logger.info(f"Fetching data from url: {url + param}")
             req = requests.get(url + param, headers=headers)
-            logger.info("Status get address: "+ str(req.status_code))
+            logger.info("Status get: "+ str(req.status_code))
             data = json.loads(req.text)
             # logger.info(data)
 
@@ -78,8 +77,11 @@ def get_addresses(offset=offset):
                 yield i
                 count +=1
 
-            if (data.get('next') is None):
-                logger.info("no more pages, breaking")
+            # if (data.get('next') is None):
+            #     logger.info("no more pages, breaking")
+            #     break
+            if len(data[f'{nestedpath}']) == 0:
+                logger.info("no more items, breaking")
                 break
             else: 
                 offset += int(limit)
@@ -91,17 +93,24 @@ def get_addresses(offset=offset):
     except Exception as e:
         logger.error(f"def get_addresses issue: {e}")
        
-@app.route("/addresses", methods=['GET'])
-def entities():
+@app.route("/<route>", methods=['GET'])
+def entities(route):
     try:
-        if request.args.get('since') is None:
+        if (route == "addresses"):
+            url = env+"rest/admin/v2/addresses"
+        elif (route == "organizations"):
+            url = env+"rest/admin/v2/organizations/manageable"
+        else: 
+            logger.error(f"Route ({route}) not found!")
+            return (f"Route ({route}) not found!")
+        if request.args.get('since') is     None:
             offset = 0
             # logger.info("since value is set to page " + str(page))
         else:
             offset = request.args.get('since')
             # offset = int(since) #-1
             # logger.info("since/page set to " + str(page))
-        return Response(stream_as_json(get_addresses(offset)), mimetype='application/json')
+        return Response(stream_as_json(get_all(offset, url)), mimetype='application/json')
     except Exception as e:
         logger.error(f"def entities issue: {e}")
 
