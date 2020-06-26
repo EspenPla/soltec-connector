@@ -71,6 +71,8 @@ def get_all(offset=offset, url=url):
                 i = dict(item)
                 try:
                     i["_id"] = str(item['id'])
+                    i["id"] = str(item['id'])
+                    # i["memberId"] = str(item['memberId'])
                     i["_updated"] = offset
                 except Exception as e:
                     logger.error(f"ERROR: {e}")
@@ -113,6 +115,24 @@ def entities(route):
         return Response(stream_as_json(get_all(offset, url)), mimetype='application/json')
     except Exception as e:
         logger.error(f"def entities issue: {e}")
+
+
+@app.route("/<route>/new_version", methods=['POST'])
+def entities(route):
+    if (route == "addresses"):
+        entities = request.get_json()
+        logger.info("Receiving entities")
+        if not isinstance(entities,list):
+            entities = [entities]
+        for entity in entities:
+            url = f"rest/admin/v2/addresses/{entities['_id']}/new-version"
+            logger.info(url)
+
+        url = env+"rest/admin/v2/addresses"
+    else:
+        logger.error(f"Route ({route}) not found!")
+        return (f"Route ({route}) not found!")
+
 
 
 if __name__ == '__main__':
