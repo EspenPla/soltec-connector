@@ -20,6 +20,7 @@ Spassword = os.getenv("password")
 Spayload = {"logonId": Susername, "logonPassword": Spassword}
 offset = 0
 url = ""
+
 # WCToken = ""
 # WCTrustedToken = ""
 
@@ -39,6 +40,8 @@ def get_auth():
     headers = {"WCToken": gettoken['WCToken'], "WCTrustedToken": gettoken['WCTrustedToken']}
 
     return headers
+
+# headers = get_auth()
 
 def stream_as_json(generator_function):
     first = True
@@ -67,13 +70,20 @@ def get_all(offset=offset, url=url):
             data = json.loads(req.text)
             # logger.info(data)
 
+            if data[f'{nestedpath}'] == None:
+                logger.info("No more items, breaking")
+                break
+                
+
             for item in data[f'{nestedpath}']:
                 i = dict(item)
                 try:
                     i["_id"] = str(item['id'])
-                    i["id"] = str(item['id'])
-                    # i["memberId"] = str(item['memberId'])
+                    i["SolteqId"] = str(item['id'])
                     i["_updated"] = offset
+                    if "memberId" in item:
+                        i["SolteqOrg"] = str(item['memberId'])
+
                 except Exception as e:
                     logger.error(f"ERROR: {e}")
                 yield i
@@ -93,7 +103,7 @@ def get_all(offset=offset, url=url):
 
         logger.info(f'Yielded: {count}. Since set to {offset}')
     except Exception as e:
-        logger.error(f"def get_addresses issue: {e}")
+        logger.error(f"def get_all issue: {e}")
        
 @app.route("/<route>", methods=['GET'])
 def entities(route):
@@ -102,10 +112,13 @@ def entities(route):
             url = env+"rest/admin/v2/addresses"
         elif (route == "organizations"):
             url = env+"rest/admin/v2/organizations/manageable"
+        elif (route == "users"):
+            url = env+"rest/admin/v2/users/manageable"
         else: 
             logger.error(f"Route ({route}) not found!")
             return (f"Route ({route}) not found!")
-        if request.args.get('since') is     None:
+
+        if request.args.get('since') is None:
             offset = 0
             # logger.info("since value is set to page " + str(page))
         else:
@@ -116,23 +129,57 @@ def entities(route):
     except Exception as e:
         logger.error(f"def entities issue: {e}")
 
-
-@app.route("/<route>/new_version", methods=['POST'])
-def entities(route):
+@app.route("/<route>", methods=['POST'])
+def new_entity(route):
+    headers = get_auth()
     if (route == "addresses"):
         entities = request.get_json()
-        logger.info("Receiving entities")
+        logger.info("Sending new entities")
         if not isinstance(entities,list):
             entities = [entities]
-        for entity in entities:
-            url = f"rest/admin/v2/addresses/{entities['_id']}/new-version"
-            logger.info(url)
+        try:
+            for entity in entities:
+                url = f"rest/admin/v2/addresses"
+                req = requests.post(url, json=entity, headers=headers)
+                logger.info(url)
+                if req.status_code != 201:
+                    logger.error(req.text)
+        except: 
+            headers = get_auth()
+            for entity in entities:
+                url = f"rest/admin/v2/addresses"
+                req = requests.post(url, json=entity, headers=headers)
+                logger.info(url)
+                if req.status_code != 201:
+                    logger.error(req.text)
+        return "200"
 
-        url = env+"rest/admin/v2/addresses"
+@app.route("/<route>/new_version", methods=['POST'])
+def new_version(route):
+    headers = get_auth()
+    if (route == "addresses"):
+        entities = request.get_json()
+        logger.info("Sending updated entities")
+        if not isinstance(entities,list):
+            entities = [entities]
+        try:
+            for entity in entities:
+                logger.info(json.dumps(entity))
+                url = f"{env}rest/admin/v2/addresses/{entity['SolteqID']}/new-version"
+                req = requests.post(url, json=entity, headers=headers)
+                logger.info(url + " - " + str(req.status_code))
+                if req.status_code != 201:
+                    logger.error(req.text)
+        except: 
+            headers = get_auth()
+            for entity in entities:
+                url = f"{env}rest/admin/v2/addresses/{entity['SolteqID']}/new-version"
+                req = requests.post(url, json=entity, headers=headers)
+                logger.info(url + " - " + str(req.status_code))
+        return "200"
     else:
         logger.error(f"Route ({route}) not found!")
         return (f"Route ({route}) not found!")
-
 
 
 if __name__ == '__main__':
@@ -141,6 +188,8 @@ if __name__ == '__main__':
     stdout_handler = logging.StreamHandler()
     stdout_handler.setFormatter(logging.Formatter(format_string))
     logger.addHandler(stdout_handler)
+
+    
 
     # Comment these two lines if you don't want access request logging
     app.wsgi_app = paste.translogger.TransLogger(app.wsgi_app, logger_name=logger.name,
@@ -163,3 +212,26 @@ if __name__ == '__main__':
     # Start the CherryPy WSGI web server
     cherrypy.engine.start()
     cherrypy.engine.block()
+
+
+# @app.route("/<route>/new_version", methods=['POST'])
+# def new_version(route, headers):
+#     if (route == "addresses"):
+#         entities = request.get_json()
+#         logger.info("Receiving entities")
+#         if not isinstance(entities,list):
+#             entities = [entities]
+#         try:
+#             for entity in entities:
+#                 url = f"rest/admin/v2/addresses/{entity['SolteqID']}/new-version"
+#                 req = requests.get(url, headers=headers)
+
+#                 logger.info(url)
+#         except: 
+#             headers = get_auth()
+#             for entity in entities:
+#                 url = f"rest/admin/v2/addresses/{entity['SolteqID']}/new-version"
+#                 req = requests.get(url, headers=headers)
+
+#                 logger.info(url)
+#         return "200"
